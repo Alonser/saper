@@ -1,76 +1,226 @@
-package com.example.saper
+package com.example.saper.ui.screens
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.saper.ui.screens.GameScreen
+import androidx.compose.ui.unit.dp
+import com.example.saper.data.models.GameState
+import com.example.saper.ui.components.CellView
 import com.example.saper.viewmodel.GameViewModel
 
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            SaperApp()
-        }
-    }
-}
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SaperApp() {
-    val viewModel: GameViewModel = viewModel()
-    val darkTheme = viewModel.isDarkTheme
+fun GameScreen(viewModel: GameViewModel) {
 
-    // Создаем серую светлую тему
-    val lightGrayColorScheme = lightColorScheme(
-        primary = Color(0xFF616161), // Серый
-        onPrimary = Color.White,
-        primaryContainer = Color(0xFFBDBDBD), // Светло-серый
-        onPrimaryContainer = Color.Black,
-        secondary = Color(0xFF757575), // Серый
-        onSecondary = Color.White,
-        secondaryContainer = Color(0xFFE0E0E0), // Очень светлый серый
-        onSecondaryContainer = Color.Black,
-        surface = Color(0xFFF5F5F5), // Светло-серый фон
-        onSurface = Color.Black,
-        surfaceVariant = Color(0xFFEEEEEE),
-        onSurfaceVariant = Color.Black,
-        error = Color(0xFFD32F2F),
-        onError = Color.White,
-        errorContainer = Color(0xFFFFCDD2),
-        onErrorContainer = Color.Black,
-        background = Color(0xFFFAFAFA), // Почти белый фон
-        onBackground = Color.Black,
-        outline = Color(0xFFBDBDBD)
+    var showSettingsDialog by remember {
+        mutableStateOf(false)
+    }
+
+    val animatedColor by animateColorAsState(
+
+        targetValue = when (viewModel.gameState) {
+
+            GameState.PLAYING ->
+                Color(0xFF607D8B)
+
+            GameState.WON ->
+                Color(0xFF4CAF50)
+
+            GameState.LOST ->
+                Color(0xFFF44336)
+        },
+
+        animationSpec = tween(400),
+
+        label = ""
     )
 
-    // Темная тема (оставляем стандартную)
-    val darkColorScheme = darkColorScheme()
-
-    MaterialTheme(
-        colorScheme = if (darkTheme) darkColorScheme else lightGrayColorScheme,
-        typography = Typography(
-            titleLarge = MaterialTheme.typography.titleLarge.copy(
-                color = if (darkTheme) Color.White else Color.Black
-            ),
-            titleMedium = MaterialTheme.typography.titleMedium.copy(
-                color = if (darkTheme) Color.White else Color.Black
-            ),
-            bodyLarge = MaterialTheme.typography.bodyLarge.copy(
-                color = if (darkTheme) Color.White else Color.Black
-            )
-        )
+    Column(
+        modifier = Modifier.fillMaxSize()
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+
+        TopAppBar(
+
+            title = {
+                Text("Сапёр")
+            },
+
+            actions = {
+
+                IconButton(
+                    onClick = {
+                        viewModel.restartGame()
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = null
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        showSettingsDialog = true
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = null
+                    )
+                }
+            }
+        )
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+
+            colors = CardDefaults.cardColors(
+                containerColor = animatedColor
+            )
         ) {
-            GameScreen(viewModel)
+
+            Text(
+
+                text = when (viewModel.gameState) {
+
+                    GameState.PLAYING ->
+                        "🎮 Игра идёт"
+
+                    GameState.WON ->
+                        "🏆 Победа"
+
+                    GameState.LOST ->
+                        "💀 Поражение"
+                },
+
+                modifier = Modifier.padding(16.dp),
+
+                color = Color.White
+            )
         }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            )
+        ) {
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+
+                Text("📏 ${viewModel.rows}x${viewModel.cols}")
+
+                Text("💣 ${viewModel.mines}")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyVerticalGrid(
+
+            columns = GridCells.Fixed(viewModel.cols),
+
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp)
+        ) {
+
+            items(
+                items = viewModel.field.flatten(),
+                key = { "${it.row}_${it.col}" }
+            ) { cell ->
+
+                CellView(
+
+                    rows = viewModel.rows,
+
+                    cell = cell,
+
+                    gameState = viewModel.gameState,
+
+                    onClick = {
+                        viewModel.openCell(cell)
+                    },
+
+                    onLongClick = {
+                        viewModel.toggleFlag(cell)
+                    }
+                )
+            }
+        }
+    }
+
+    if (showSettingsDialog) {
+
+        AlertDialog(
+
+            onDismissRequest = {
+                showSettingsDialog = false
+            },
+
+            title = {
+                Text("Выбор сложности")
+            },
+
+            text = {
+
+                Column {
+
+                    viewModel.getPresets().forEach { preset ->
+
+                        Button(
+
+                            onClick = {
+
+                                viewModel.applyPreset(preset)
+
+                                showSettingsDialog = false
+                            },
+
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+
+                            Text(
+                                "${preset.name} (${preset.rows}x${preset.cols}, ${preset.mines} мин)"
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            },
+
+            confirmButton = {
+
+                Button(
+                    onClick = {
+                        showSettingsDialog = false
+                    }
+                ) {
+                    Text("Закрыть")
+                }
+            }
+        )
     }
 }

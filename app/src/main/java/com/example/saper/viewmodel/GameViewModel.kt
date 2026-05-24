@@ -11,180 +11,247 @@ import com.example.saper.data.models.PresetConfig
 import kotlin.random.Random
 
 class GameViewModel : ViewModel() {
-    var isDarkTheme by mutableStateOf(false)
-        private set
 
     var rows by mutableIntStateOf(9)
     var cols by mutableIntStateOf(9)
     var mines by mutableIntStateOf(10)
-    var gameState by mutableStateOf(GameState.PLAYING)
-    var field by mutableStateOf(generateField(rows, cols, mines))
 
-    private val presetConfigs = listOf(
-        PresetConfig("Новичок", 9, 9, 10),
-        PresetConfig("Любитель", 16, 16, 40),
-        PresetConfig("Эксперт", 30, 16, 99)
+    var gameState by mutableStateOf(GameState.PLAYING)
+
+    var field by mutableStateOf(
+        generateField(rows, cols, mines)
     )
 
-    fun toggleTheme() {
-        isDarkTheme = !isDarkTheme
-    }
+    private val presetConfigs = listOf(
+
+        PresetConfig(
+            "Новичок",
+            9,
+            9,
+            10
+        ),
+
+        PresetConfig(
+            "Любитель",
+            16,
+            16,
+            40
+        ),
+
+        PresetConfig(
+            "Эксперт",
+            30,
+            16,
+            99
+        )
+    )
 
     fun restartGame() {
+
         gameState = GameState.PLAYING
-        field = generateField(rows, cols, mines)
+
+        field = generateField(
+            rows,
+            cols,
+            mines
+        )
     }
 
-    fun setFieldSize(r: Int, c: Int, mineCount: Int? = null) {
-        rows = r
-        cols = c
-        mines = mineCount ?: calculateOptimalMinesCount(r, c)
-        restartGame()
-    }
+    fun applyPreset(
+        preset: PresetConfig
+    ) {
 
-    fun applyPreset(preset: PresetConfig) {
         rows = preset.rows
         cols = preset.cols
         mines = preset.mines
+
         restartGame()
     }
 
-    private fun calculateOptimalMinesCount(rows: Int, cols: Int): Int {
-        val totalCells = rows * cols
-        return when {
-            totalCells <= 81 -> (totalCells * 0.12).toInt()
-            totalCells <= 256 -> (totalCells * 0.15).toInt()
-            totalCells <= 480 -> (totalCells * 0.18).toInt()
-            totalCells <= 900 -> (totalCells * 0.20).toInt()
-            else -> (totalCells * 0.22).toInt()
-        }.coerceIn(1, totalCells - 1)
+    fun getPresets() = presetConfigs
+
+    fun toggleFlag(cell: Cell) {
+
+        if (
+            cell.isOpened ||
+            gameState != GameState.PLAYING
+        ) return
+
+        cell.isFlagged = !cell.isFlagged
+
+        field = field.toList()
     }
 
     fun openCell(cell: Cell) {
-        if (cell.isFlagged || cell.isOpened || gameState != GameState.PLAYING) return
+
+        if (
+            cell.isOpened ||
+            cell.isFlagged ||
+            gameState != GameState.PLAYING
+        ) return
 
         if (cell.isMine) {
+
             cell.isOpened = true
-            field = field.toList()
+
             gameState = GameState.LOST
+
             revealAllMines()
+
+            field = field.toList()
+
             return
         }
 
-        // Используем итеративный подход вместо рекурсивного
-        openAreaIterative(cell.row, cell.col)
+        val mutableField = field
+            .map { it.toMutableList() }
+            .toMutableList()
+
+        openAreaFast(
+            mutableField,
+            cell.row,
+            cell.col
+        )
+
+        field = mutableField
+
         checkWin()
     }
 
-    private fun openAreaIterative(startRow: Int, startCol: Int) {
-        val queue = ArrayDeque<Pair<Int, Int>>()
-        val visited = mutableSetOf<Pair<Int, Int>>()
+    private fun openAreaFast(
+        field: MutableList<MutableList<Cell>>,
+        startRow: Int,
+        startCol: Int
+    ) {
 
-        queue.addLast(Pair(startRow, startCol))
-        visited.add(Pair(startRow, startCol))
+        val queue = ArrayDeque<Pair<Int, Int>>()
+
+        queue.add(Pair(startRow, startCol))
 
         while (queue.isNotEmpty()) {
+
             val (row, col) = queue.removeFirst()
-            val currentCell = field[row][col]
 
-            // Пропускаем если это мина или флаг
-            if (currentCell.isMine || currentCell.isFlagged) continue
+            if (
+                row !in 0 until rows ||
+                col !in 0 until cols
+            ) continue
 
-            // Открываем клетку
-            if (!currentCell.isOpened) {
-                currentCell.isOpened = true
-            }
+            val current = field[row][col]
 
-            // Если клетка пустая (нет соседних мин), добавляем соседей в очередь
-            if (currentCell.nearbyMines == 0) {
+            if (
+                current.isOpened ||
+                current.isMine ||
+                current.isFlagged
+            ) continue
+
+            current.isOpened = true
+
+            if (current.nearbyMines == 0) {
+
                 for (dr in -1..1) {
                     for (dc in -1..1) {
-                        if (dr == 0 && dc == 0) continue
 
-                        val nr = row + dr
-                        val nc = col + dc
-                        val pair = Pair(nr, nc)
+                        if (dr == 0 && dc == 0)
+                            continue
 
-                        if (nr in 0 until rows &&
-                            nc in 0 until cols &&
-                            !visited.contains(pair)) {
-                            val neighbor = field[nr][nc]
-                            if (!neighbor.isMine && !neighbor.isFlagged) {
-                                visited.add(pair)
-                                queue.addLast(pair)
-                            }
-                        }
+                        queue.add(
+                            Pair(
+                                row + dr,
+                                col + dc
+                            )
+                        )
                     }
                 }
             }
         }
-
-        // Обновляем UI один раз после всех изменений
-        field = field.toList()
-    }
-
-    fun toggleFlag(cell: Cell) {
-        if (cell.isOpened || gameState != GameState.PLAYING) return
-        cell.isFlagged = !cell.isFlagged
-        field = field.toList()
     }
 
     private fun revealAllMines() {
-        field.flatten().forEach { cell ->
-            if (cell.isMine && !cell.isOpened) {
-                cell.isOpened = true
+
+        field.flatten().forEach {
+
+            if (it.isMine) {
+
+                it.isOpened = true
             }
         }
+
         field = field.toList()
     }
 
     private fun checkWin() {
-        val won = field.flatten().all { it.isMine || it.isOpened }
-        if (won && gameState == GameState.PLAYING) {
+
+        val won = field.flatten().all {
+
+            it.isMine || it.isOpened
+        }
+
+        if (won) {
+
             gameState = GameState.WON
-            field = field.toList()
         }
     }
 
-    private fun generateField(rows: Int, cols: Int, mines: Int): List<List<Cell>> {
-        val field = MutableList(rows) { r ->
-            MutableList(cols) { c ->
-                Cell(r, c)
-            }
-        }
+    private fun generateField(
+        rows: Int,
+        cols: Int,
+        mines: Int
+    ): List<List<Cell>> {
 
-        // Размещаем мины
+        val field =
+            MutableList(rows) { r ->
+
+                MutableList(cols) { c ->
+
+                    Cell(r, c)
+                }
+            }
+
         var placed = 0
+
         while (placed < mines) {
+
             val r = Random.nextInt(rows)
             val c = Random.nextInt(cols)
+
             if (!field[r][c].isMine) {
+
                 field[r][c].isMine = true
+
                 placed++
             }
         }
 
-        // Вычисляем количество соседних мин
         for (r in 0 until rows) {
             for (c in 0 until cols) {
-                if (field[r][c].isMine) continue
+
+                if (field[r][c].isMine)
+                    continue
 
                 var count = 0
+
                 for (dr in -1..1) {
                     for (dc in -1..1) {
+
                         val nr = r + dr
                         val nc = c + dc
-                        if (nr in 0 until rows && nc in 0 until cols && field[nr][nc].isMine) {
+
+                        if (
+                            nr in 0 until rows &&
+                            nc in 0 until cols &&
+                            field[nr][nc].isMine
+                        ) {
+
                             count++
                         }
                     }
                 }
+
                 field[r][c].nearbyMines = count
             }
         }
 
-        return field.map { it.toList() }
+        return field
     }
-
-    fun getPresets() = presetConfigs
 }
