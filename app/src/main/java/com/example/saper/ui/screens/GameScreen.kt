@@ -1,226 +1,91 @@
 package com.example.saper.ui.screens
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saper.data.models.GameState
+import com.example.saper.data.models.PresetConfig
 import com.example.saper.ui.components.CellView
 import com.example.saper.viewmodel.GameViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GameScreen(viewModel: GameViewModel) {
-
-    var showSettingsDialog by remember {
-        mutableStateOf(false)
-    }
-
-    val animatedColor by animateColorAsState(
-
-        targetValue = when (viewModel.gameState) {
-
-            GameState.PLAYING ->
-                Color(0xFF607D8B)
-
-            GameState.WON ->
-                Color(0xFF4CAF50)
-
-            GameState.LOST ->
-                Color(0xFFF44336)
-        },
-
-        animationSpec = tween(400),
-
-        label = ""
-    )
+fun GameScreen(viewModel: GameViewModel = viewModel()) {
+    val grid by viewModel.grid.collectAsState()
+    val gameState by viewModel.gameState.collectAsState()
+    val flagsRemaining by viewModel.flagsRemaining.collectAsState()
+    val config by viewModel.config.collectAsState()
 
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Шапка со счетчиком и смайлом рестарта
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("🚩 $flagsRemaining", fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
-        TopAppBar(
-
-            title = {
-                Text("Сапёр")
-            },
-
-            actions = {
-
-                IconButton(
-                    onClick = {
-                        viewModel.restartGame()
-                    }
-                ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = null
-                    )
-                }
-
-                IconButton(
-                    onClick = {
-                        showSettingsDialog = true
-                    }
-                ) {
-                    Icon(
-                        Icons.Default.Settings,
-                        contentDescription = null
-                    )
-                }
+            val emoji = when (gameState) {
+                GameState.WON -> "😎"
+                GameState.LOST -> "😵"
+                else -> "🙂"
             }
-        )
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-
-            colors = CardDefaults.cardColors(
-                containerColor = animatedColor
-            )
-        ) {
-
-            Text(
-
-                text = when (viewModel.gameState) {
-
-                    GameState.PLAYING ->
-                        "🎮 Игра идёт"
-
-                    GameState.WON ->
-                        "🏆 Победа"
-
-                    GameState.LOST ->
-                        "💀 Поражение"
-                },
-
-                modifier = Modifier.padding(16.dp),
-
-                color = Color.White
-            )
-        }
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
-            )
-        ) {
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-
-                Text("📏 ${viewModel.rows}x${viewModel.cols}")
-
-                Text("💣 ${viewModel.mines}")
+            Button(onClick = { viewModel.resetGame() }) {
+                Text(emoji, fontSize = 24.sp)
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
+        // Выбор сложности
+        Row(
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Button(onClick = { viewModel.resetGame(PresetConfig.EASY) }) { Text("EASY") }
+            Button(onClick = { viewModel.resetGame(PresetConfig.NORMAL) }) { Text("NORMAL") }
+            Button(onClick = { viewModel.resetGame(PresetConfig.HARD) }) { Text("HARD") }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Игровая сетка
         LazyVerticalGrid(
-
-            columns = GridCells.Fixed(viewModel.cols),
-
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp)
+            columns = GridCells.Fixed(config.width),
+            modifier = Modifier.fillMaxWidth()
         ) {
-
-            items(
-                items = viewModel.field.flatten(),
-                key = { "${it.row}_${it.col}" }
-            ) { cell ->
-
+            items(grid.flatten()) { cell ->
                 CellView(
-
-                    rows = viewModel.rows,
-
                     cell = cell,
-
-                    gameState = viewModel.gameState,
-
-                    onClick = {
-                        viewModel.openCell(cell)
-                    },
-
-                    onLongClick = {
-                        viewModel.toggleFlag(cell)
-                    }
+                    onClick = { viewModel.onCellClicked(cell.x, cell.y) },
+                    onLongClick = { viewModel.onCellLongClicked(cell.x, cell.y) }
                 )
             }
         }
-    }
 
-    if (showSettingsDialog) {
+        Spacer(modifier = Modifier.height(16.dp))
 
-        AlertDialog(
-
-            onDismissRequest = {
-                showSettingsDialog = false
-            },
-
-            title = {
-                Text("Выбор сложности")
-            },
-
-            text = {
-
-                Column {
-
-                    viewModel.getPresets().forEach { preset ->
-
-                        Button(
-
-                            onClick = {
-
-                                viewModel.applyPreset(preset)
-
-                                showSettingsDialog = false
-                            },
-
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-
-                            Text(
-                                "${preset.name} (${preset.rows}x${preset.cols}, ${preset.mines} мин)"
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-            },
-
-            confirmButton = {
-
-                Button(
-                    onClick = {
-                        showSettingsDialog = false
-                    }
-                ) {
-                    Text("Закрыть")
-                }
-            }
-        )
+        // Статус победы/поражения
+        if (gameState == GameState.WON) {
+            Text("Победа!", color = MaterialTheme.colorScheme.primary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+        } else if (gameState == GameState.LOST) {
+            Text("Поражение!", color = MaterialTheme.colorScheme.error, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }

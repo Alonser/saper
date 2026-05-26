@@ -1,257 +1,165 @@
 package com.example.saper.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.example.saper.data.models.Cell
 import com.example.saper.data.models.GameState
 import com.example.saper.data.models.PresetConfig
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlin.random.Random
 
 class GameViewModel : ViewModel() {
+    private val _config = MutableStateFlow(PresetConfig.EASY)
+    val config = _config.asStateFlow()
 
-    var rows by mutableIntStateOf(9)
-    var cols by mutableIntStateOf(9)
-    var mines by mutableIntStateOf(10)
+    private val _gameState = MutableStateFlow(GameState.INITIAL)
+    val gameState = _gameState.asStateFlow()
 
-    var gameState by mutableStateOf(GameState.PLAYING)
+    private val _grid = MutableStateFlow<List<List<Cell>>>(emptyList())
+    val grid = _grid.asStateFlow()
 
-    var field by mutableStateOf(
-        generateField(rows, cols, mines)
-    )
+    private val _flagsRemaining = MutableStateFlow(0)
+    val flagsRemaining = _flagsRemaining.asStateFlow()
 
-    private val presetConfigs = listOf(
-
-        PresetConfig(
-            "Новичок",
-            9,
-            9,
-            10
-        ),
-
-        PresetConfig(
-            "Любитель",
-            16,
-            16,
-            40
-        ),
-
-        PresetConfig(
-            "Эксперт",
-            30,
-            16,
-            99
-        )
-    )
-
-    fun restartGame() {
-
-        gameState = GameState.PLAYING
-
-        field = generateField(
-            rows,
-            cols,
-            mines
-        )
+    init {
+        resetGame(PresetConfig.EASY)
     }
 
-    fun applyPreset(
-        preset: PresetConfig
-    ) {
-
-        rows = preset.rows
-        cols = preset.cols
-        mines = preset.mines
-
-        restartGame()
+    fun resetGame(newConfig: PresetConfig = _config.value) {
+        _config.value = newConfig
+        _gameState.value = GameState.INITIAL
+        _flagsRemaining.value = newConfig.mines
+        _grid.value = List(newConfig.height) { y ->
+            List(newConfig.width) { x -> Cell(x, y) }
+        }
     }
 
-    fun getPresets() = presetConfigs
+    private fun placeMines(firstX: Int, firstY: Int) {
+        val currentConfig = _config.value
+        val newGrid = _grid.value.map { it.toMutableList() }.toMutableList()
+        var minesPlaced = 0
 
-    fun toggleFlag(cell: Cell) {
+        while (minesPlaced < currentConfig.mines) {
+            val rx = Random.nextInt(currentConfig.width)
+            val ry = Random.nextInt(currentConfig.height)
 
-        if (
-            cell.isOpened ||
-            gameState != GameState.PLAYING
-        ) return
+            // Защита первого клика: вокруг него не должно быть мин
+            if (kotlin.math.abs(rx - firstX) <= 1 && kotlin.math.abs(ry - firstY) <= 1) continue
 
-        cell.isFlagged = !cell.isFlagged
+            if (!newGrid[ry][rx].isMine) {
+                newGrid[ry][rx] = newGrid[ry][rx].copy(isMine = true)
+                minesPlaced++
+            }
+        }
 
-        field = field.toList()
+        // Подсчет мин вокруг каждой клетки
+        for (y in 0 until currentConfig.height) {
+            for (x in 0 until currentConfig.width) {
+                if (!newGrid[y][x].isMine) {
+                    var count = 0
+                    for (dy in -1..1) {
+                        for (dx in -1..1) {
+                            val ny = y + dy
+                            val nx = x + dx
+                            if (ny in 0 until currentConfig.height && nx in 0 until currentConfig.width && newGrid[ny][nx].isMine) {
+                                count++
+                            }
+                        }
+                    }
+                    newGrid[y][x] = newGrid[y][x].copy(minesAround = count)
+                }
+            }
+        }
+        _grid.value = newGrid
     }
 
-    fun openCell(cell: Cell) {
+    fun onCellClicked(x: Int, y: Int) {
+        if (_gameState.value == GameState.WON || _gameState.value == GameState.LOST) return
 
-        if (
-            cell.isOpened ||
-            cell.isFlagged ||
-            gameState != GameState.PLAYING
-        ) return
+        val cell = _grid.value[y][x]
+        if (cell.isFlagged || cell.isRevealed) return
 
-        if (cell.isMine) {
+        if (_gameState.value == GameState.INITIAL) {
+            placeMines(x, y)
+            _gameState.value = GameState.PLAYING
+        }
 
-            cell.isOpened = true
-
-            gameState = GameState.LOST
-
+        if (_grid.value[y][x].isMine) {
             revealAllMines()
-
-            field = field.toList()
-
+            _gameState.value = GameState.LOST
             return
         }
 
-        val mutableField = field
-            .map { it.toMutableList() }
-            .toMutableList()
-
-        openAreaFast(
-            mutableField,
-            cell.row,
-            cell.col
-        )
-
-        field = mutableField
-
+        revealCell(x, y)
         checkWin()
     }
 
-    private fun openAreaFast(
-        field: MutableList<MutableList<Cell>>,
-        startRow: Int,
-        startCol: Int
-    ) {
+    fun onCellLongClicked(x: Int, y: Int) {
+        if (_gameState.value != GameState.PLAYING && _gameState.value != GameState.INITIAL) return
 
-        val queue = ArrayDeque<Pair<Int, Int>>()
+        val newGrid = _grid.value.map { it.toMutableList() }.toMutableList()
+        val cell = newGrid[y][x]
 
-        queue.add(Pair(startRow, startCol))
+        if (!cell.isRevealed) {
+            val wasFlagged = cell.isFlagged
+            newGrid[y][x] = cell.copy(isFlagged = !wasFlagged)
+            _grid.value = newGrid
+            _flagsRemaining.update { it + if (wasFlagged) 1 else -1 }
+        }
+    }
+
+    private fun revealCell(x: Int, y: Int) {
+        val currentConfig = _config.value
+        val newGrid = _grid.value.map { it.toMutableList() }.toMutableList()
+        val queue = mutableListOf(Pair(x, y))
+
+        // ИСПРАВЛЕНИЕ: Храним координаты клеток, которые уже добавлены в очередь
+        val visited = mutableSetOf(Pair(x, y))
 
         while (queue.isNotEmpty()) {
+            val (cx, cy) = queue.removeAt(0)
+            val cell = newGrid[cy][cx]
 
-            val (row, col) = queue.removeFirst()
+            if (cell.isRevealed || cell.isFlagged) continue
 
-            if (
-                row !in 0 until rows ||
-                col !in 0 until cols
-            ) continue
+            newGrid[cy][cx] = cell.copy(isRevealed = true)
 
-            val current = field[row][col]
-
-            if (
-                current.isOpened ||
-                current.isMine ||
-                current.isFlagged
-            ) continue
-
-            current.isOpened = true
-
-            if (current.nearbyMines == 0) {
-
-                for (dr in -1..1) {
-                    for (dc in -1..1) {
-
-                        if (dr == 0 && dc == 0)
-                            continue
-
-                        queue.add(
-                            Pair(
-                                row + dr,
-                                col + dc
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private fun revealAllMines() {
-
-        field.flatten().forEach {
-
-            if (it.isMine) {
-
-                it.isOpened = true
-            }
-        }
-
-        field = field.toList()
-    }
-
-    private fun checkWin() {
-
-        val won = field.flatten().all {
-
-            it.isMine || it.isOpened
-        }
-
-        if (won) {
-
-            gameState = GameState.WON
-        }
-    }
-
-    private fun generateField(
-        rows: Int,
-        cols: Int,
-        mines: Int
-    ): List<List<Cell>> {
-
-        val field =
-            MutableList(rows) { r ->
-
-                MutableList(cols) { c ->
-
-                    Cell(r, c)
-                }
-            }
-
-        var placed = 0
-
-        while (placed < mines) {
-
-            val r = Random.nextInt(rows)
-            val c = Random.nextInt(cols)
-
-            if (!field[r][c].isMine) {
-
-                field[r][c].isMine = true
-
-                placed++
-            }
-        }
-
-        for (r in 0 until rows) {
-            for (c in 0 until cols) {
-
-                if (field[r][c].isMine)
-                    continue
-
-                var count = 0
-
-                for (dr in -1..1) {
-                    for (dc in -1..1) {
-
-                        val nr = r + dr
-                        val nc = c + dc
-
-                        if (
-                            nr in 0 until rows &&
-                            nc in 0 until cols &&
-                            field[nr][nc].isMine
-                        ) {
-
-                            count++
+            // Если вокруг нет мин, открываем соседние клетки
+            if (cell.minesAround == 0) {
+                for (dy in -1..1) {
+                    for (dx in -1..1) {
+                        val nx = cx + dx
+                        val ny = cy + dy
+                        if (ny in 0 until currentConfig.height && nx in 0 until currentConfig.width) {
+                            val neighborPos = Pair(nx, ny)
+                            // ИСПРАВЛЕНИЕ: Проверяем по visited, чтобы не добавлять в очередь бесконечно
+                            if (!visited.contains(neighborPos) && !newGrid[ny][nx].isRevealed) {
+                                visited.add(neighborPos)
+                                queue.add(neighborPos)
+                            }
                         }
                     }
                 }
-
-                field[r][c].nearbyMines = count
             }
         }
+        _grid.value = newGrid
+    }
 
-        return field
+    private fun revealAllMines() {
+        _grid.value = _grid.value.map { row ->
+            row.map { cell ->
+                if (cell.isMine) cell.copy(isRevealed = true) else cell
+            }
+        }
+    }
+
+    private fun checkWin() {
+        val safeUnrevealed = _grid.value.sumOf { row ->
+            row.count { cell -> !cell.isMine && !cell.isRevealed }
+        }
+        if (safeUnrevealed == 0) {
+            _gameState.value = GameState.WON
+        }
     }
 }
