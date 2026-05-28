@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +25,10 @@ fun GameScreen(viewModel: GameViewModel) {
     val gameState by viewModel.gameState.collectAsState()
     val flagsRemaining by viewModel.flagsRemaining.collectAsState()
     val config by viewModel.config.collectAsState()
+
+    // ОПТИМИЗАЦИЯ 1: Кэшируем выпрямленный список клеток.
+    // Теперь flatten() выполнится ТОЛЬКО если изменится сам объект grid, а не при каждой рекомпозиции интерфейса.
+    val flatGrid = remember(grid) { grid.flatten() }
 
     Column(
         modifier = Modifier
@@ -59,9 +64,14 @@ fun GameScreen(viewModel: GameViewModel) {
         // Игровая сетка
         LazyVerticalGrid(
             columns = GridCells.Fixed(config.width),
-            modifier = Modifier.fillMaxWidth().weight(1f) // Занимает всё доступное место
+            modifier = Modifier.fillMaxWidth().weight(1f)
         ) {
-            items(grid.flatten()) { cell ->
+            // ОПТИМИЗАЦИЯ 2: Передаем кэшированный flatGrid и добавляем уникальный key для каждой ячейки.
+            // Ключ в виде строки "x_y" помогает Compose точечно обновлять только ту клетку, на которую нажали.
+            items(
+                items = flatGrid,
+                key = { cell -> "${cell.x}_${cell.y}" }
+            ) { cell ->
                 CellView(
                     cell = cell,
                     onClick = { viewModel.onCellClicked(cell.x, cell.y) },
