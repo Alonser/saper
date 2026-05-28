@@ -13,14 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saper.data.models.GameState
-import com.example.saper.data.models.PresetConfig
+import com.example.saper.data.models.ScreenState
 import com.example.saper.ui.components.CellView
 import com.example.saper.viewmodel.GameViewModel
 
 @Composable
-fun GameScreen(viewModel: GameViewModel = viewModel()) {
+fun GameScreen(viewModel: GameViewModel) {
     val grid by viewModel.grid.collectAsState()
     val gameState by viewModel.gameState.collectAsState()
     val flagsRemaining by viewModel.flagsRemaining.collectAsState()
@@ -32,12 +31,16 @@ fun GameScreen(viewModel: GameViewModel = viewModel()) {
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Шапка со счетчиком и смайлом рестарта
+        // Шапка со счетчиком и возвратом
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            TextButton(onClick = { viewModel.navigateTo(ScreenState.MENU) }) {
+                Text("⬅ Меню", fontSize = 18.sp)
+            }
+
             Text("🚩 $flagsRemaining", fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
             val emoji = when (gameState) {
@@ -53,22 +56,10 @@ fun GameScreen(viewModel: GameViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Выбор сложности
-        Row(
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Button(onClick = { viewModel.resetGame(PresetConfig.EASY) }) { Text("EASY") }
-            Button(onClick = { viewModel.resetGame(PresetConfig.NORMAL) }) { Text("NORMAL") }
-            Button(onClick = { viewModel.resetGame(PresetConfig.HARD) }) { Text("HARD") }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         // Игровая сетка
         LazyVerticalGrid(
             columns = GridCells.Fixed(config.width),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().weight(1f) // Занимает всё доступное место
         ) {
             items(grid.flatten()) { cell ->
                 CellView(
