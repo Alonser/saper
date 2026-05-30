@@ -17,11 +17,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// 1. Модификатор для 3D-рамки
 fun Modifier.minesweeper3DBorder(
     thickness: Dp = 3.dp,
-    highlightColor: Color = Color(0xFFFFFFFF), // Белый блик
-    shadowColor: Color = Color(0xFF808080)     // Темно-серая тень
+    highlightColor: Color = Color(0xFFFFFFFF),
+    shadowColor: Color = Color(0xFF808080)
 ) = this.drawBehind {
     val pxThickness = thickness.toPx()
     drawLine(color = highlightColor, start = Offset(0f, 0f), end = Offset(size.width, 0f), strokeWidth = pxThickness)
@@ -30,19 +29,18 @@ fun Modifier.minesweeper3DBorder(
     drawLine(color = shadowColor, start = Offset(0f, size.height), end = Offset(size.width, size.height), strokeWidth = pxThickness)
 }
 
-// 2. Ретро-кнопка (теперь с onClick!)
 @Composable
 fun MinesweeperButton(
     icon: ImageVector? = null,
     text: String,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit // Обработчик нажатия
+    onClick: () -> Unit
 ) {
     Box(
         modifier = modifier
             .background(Color(0xFFC0C0C0))
             .minesweeper3DBorder()
-            .clickable(onClick = onClick), // Делаем кнопку кликабельной
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -68,7 +66,6 @@ fun MinesweeperButton(
     }
 }
 
-// 3. Ретро-плитка (можно будет использовать вместо CellView позже)
 @Composable
 fun MinesweeperTile(
     modifier: Modifier = Modifier,

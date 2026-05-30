@@ -12,13 +12,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            // Инициализируем ViewModel, она сама подхватит контекст приложения
             val gameViewModel: GameViewModel = viewModel()
-
-            // Состояние экрана (MENU, GAME, SETTINGS)
             var currentScreen by remember { mutableStateOf("MENU") }
 
-            // Навигация
             when (currentScreen) {
                 "MENU" -> MainMenuScreen(
                     onStartGame = {

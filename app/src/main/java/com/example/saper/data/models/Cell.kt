@@ -8,7 +8,6 @@ class Cell(
     val row: Int,
     val col: Int
 ) {
-    // Теперь Compose будет следить за каждым изменением этих переменных!
     var isMine by mutableStateOf(false)
     var isOpened by mutableStateOf(false)
     var isFlagged by mutableStateOf(false)
