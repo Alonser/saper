@@ -1,82 +1,53 @@
 package com.example.saper.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.saper.data.models.ScreenState
+import com.example.saper.ui.components.MinesweeperButton
 import com.example.saper.viewmodel.GameViewModel
-import kotlin.math.roundToInt
 
 @Composable
-fun SettingsScreen(viewModel: GameViewModel) {
-    val width by viewModel.customWidth.collectAsState()
-    val height by viewModel.customHeight.collectAsState()
-    val mines by viewModel.customMines.collectAsState()
-
-    // Максимальное количество мин зависит от размера поля (оставляем запас для 1-го клика)
-    val maxPossibleMines = ((width * height) * 0.8f).coerceAtLeast(1f)
-
+fun SettingsScreen(onBack: () -> Unit, viewModel: GameViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFC0C0C0))
             .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Своя игра", fontSize = 32.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(32.dp))
+        Text("НАСТРОЙКИ", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black)
 
-        // Ширина
-        Text("Ширина поля: ${width.roundToInt()}", fontSize = 18.sp)
-        Slider(
-            value = width,
-            onValueChange = { viewModel.customWidth.value = it },
-            valueRange = 5f..30f,
-            steps = 25
-        )
+        Spacer(modifier = Modifier.height(24.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Высота
-        Text("Высота поля: ${height.roundToInt()}", fontSize = 18.sp)
-        Slider(
-            value = height,
-            onValueChange = { viewModel.customHeight.value = it },
-            valueRange = 5f..30f,
-            steps = 25
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Мины (динамически обновляем ползунок, если поле стало меньше)
-        val currentMines = if (mines > maxPossibleMines) maxPossibleMines else mines
-        LaunchedEffect(maxPossibleMines) { viewModel.customMines.value = currentMines }
-
-        Text("Количество мин: ${currentMines.roundToInt()}", fontSize = 18.sp)
-        Slider(
-            value = currentMines,
-            onValueChange = { viewModel.customMines.value = it },
-            valueRange = 1f..maxPossibleMines
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        Button(
-            onClick = { viewModel.startGameWithCustomSettings() },
-            modifier = Modifier.fillMaxWidth().height(50.dp)
-        ) {
-            Text("Начать игру", fontSize = 20.sp)
+        // Выбор размера поля
+        Text("Размер поля:", fontSize = 18.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MinesweeperButton(text = "9x9", onClick = { viewModel.rows = 9; viewModel.cols = 9; viewModel.restartGame() })
+            MinesweeperButton(text = "16x16", onClick = { viewModel.rows = 16; viewModel.cols = 16; viewModel.restartGame() })
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
-        TextButton(onClick = { viewModel.navigateTo(ScreenState.MENU) }) {
-            Text("Назад в меню", fontSize = 18.sp)
-        }
+        // Правила игры
+        Text("ПРАВИЛА ИГРЫ", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "1. Открывайте ячейки, избегая мин.\n" +
+                    "2. Цифра показывает, сколько мин вокруг ячейки.\n" +
+                    "3. Долгое нажатие ставит флажок на подозрительное место.\n" +
+                    "4. Ваша цель — открыть все безопасные ячейки!",
+            fontSize = 14.sp,
+            color = Color.DarkGray
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+        MinesweeperButton(text = "НАЗАД", modifier = Modifier.fillMaxWidth(), onClick = onBack)
     }
 }

@@ -1,92 +1,49 @@
 package com.example.saper.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.saper.data.models.GameState
-import com.example.saper.data.models.ScreenState
 import com.example.saper.ui.components.CellView
+import com.example.saper.ui.components.MinesweeperButton
+import com.example.saper.ui.components.minesweeper3DBorder
 import com.example.saper.viewmodel.GameViewModel
 
 @Composable
-fun GameScreen(viewModel: GameViewModel) {
-    val grid by viewModel.grid.collectAsState()
-    val gameState by viewModel.gameState.collectAsState()
-    val flagsRemaining by viewModel.flagsRemaining.collectAsState()
-    val config by viewModel.config.collectAsState()
+fun GameScreen(viewModel: GameViewModel, onBack: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFFC0C0C0)).padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        // Верхняя панель
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            MinesweeperButton(text = "МЕНЮ", onClick = onBack, modifier = Modifier.height(40.dp))
 
-    // ОПТИМИЗАЦИЯ 1: Кэшируем выпрямленный список клеток.
-    // Теперь flatten() выполнится ТОЛЬКО если изменится сам объект grid, а не при каждой рекомпозиции интерфейса.
-    val flatGrid = remember(grid) { grid.flatten() }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Шапка со счетчиком и возвратом
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = { viewModel.navigateTo(ScreenState.MENU) }) {
-                Text("⬅ Меню", fontSize = 18.sp)
+            // Смайл-кнопка (Рестарт)
+            Box(modifier = Modifier.size(40.dp).background(Color(0xFFC0C0C0)).minesweeper3DBorder().clickable { viewModel.restartGame() }, contentAlignment = Alignment.Center) {
+                Text(text = if (viewModel.isGameOver.value) "😵" else "🙂", fontSize = 20.sp)
             }
 
-            Text("🚩 $flagsRemaining", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-
-            val emoji = when (gameState) {
-                GameState.WON -> "😎"
-                GameState.LOST -> "😵"
-                else -> "🙂"
-            }
-
-            Button(onClick = { viewModel.resetGame() }) {
-                Text(emoji, fontSize = 24.sp)
-            }
+            Text(text = String.format("%03d", viewModel.minesLeft.value), fontSize = 28.sp, fontWeight = FontWeight.Black, color = Color.Red, modifier = Modifier.background(Color.Black).padding(horizontal = 8.dp))
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Игровая сетка
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(config.width),
-            modifier = Modifier.fillMaxWidth().weight(1f)
-        ) {
-            // ОПТИМИЗАЦИЯ 2: Передаем кэшированный flatGrid и добавляем уникальный key для каждой ячейки.
-            // Ключ в виде строки "x_y" помогает Compose точечно обновлять только ту клетку, на которую нажали.
-            items(
-                items = flatGrid,
-                key = { cell -> "${cell.x}_${cell.y}" }
-            ) { cell ->
-                CellView(
-                    cell = cell,
-                    onClick = { viewModel.onCellClicked(cell.x, cell.y) },
-                    onLongClick = { viewModel.onCellLongClicked(cell.x, cell.y) }
-                )
+        // Поле
+        Box(modifier = Modifier.background(Color.Gray).padding(2.dp)) {
+            LazyColumn {
+                items(viewModel.rows) { r ->
+                    LazyRow {
+                        items(viewModel.cols) { c ->
+                            CellView(cell = viewModel.board.value[r][c], onClick = { viewModel.openCell(r, c) }, onLongClick = { viewModel.toggleFlag(r, c) })
+                        }
+                    }
+                }
             }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Статус победы/поражения
-        if (gameState == GameState.WON) {
-            Text("Победа!", color = MaterialTheme.colorScheme.primary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-        } else if (gameState == GameState.LOST) {
-            Text("Поражение!", color = MaterialTheme.colorScheme.error, fontSize = 32.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
