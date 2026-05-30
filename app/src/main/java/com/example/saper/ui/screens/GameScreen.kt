@@ -86,7 +86,7 @@ fun GameScreen(
                     Text(
                         text = when (gameState) {
                             GameState.WON -> "😎"
-                            GameState.LOST -> "💀"
+                            GameState.LOST -> "😵‍💫"
                             else -> "🙂"
                         },
                         fontSize = 32.sp

@@ -30,7 +30,8 @@ fun Modifier.retroBorder(
 @Composable
 fun MainMenuScreen(
     onStartGame: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    onRecords: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -40,6 +41,7 @@ fun MainMenuScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // Заголовок с 3D рамкой
         Box(
             modifier = Modifier
                 .padding(bottom = 64.dp)
@@ -55,14 +57,25 @@ fun MainMenuScreen(
             )
         }
 
+        // Кнопка GO
         MinesweeperButton(
             text = "GO",
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp),
+                .padding(bottom = 16.dp),
             onClick = onStartGame
         )
 
+        // Кнопка РЕКОРДЫ
+        MinesweeperButton(
+            text = "РЕКОРДЫ",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            onClick = onRecords
+        )
+
+        // Кнопка НАСТРОЙКИ
         MinesweeperButton(
             text = "НАСТРОЙКИ",
             modifier = Modifier.fillMaxWidth(0.7f),

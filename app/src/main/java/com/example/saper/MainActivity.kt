@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.saper.data.repository.RecordRepository
 import com.example.saper.ui.screens.*
 import com.example.saper.viewmodel.GameViewModel
 
@@ -13,6 +14,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val gameViewModel: GameViewModel = viewModel()
+            val recordRepository = remember { RecordRepository(applicationContext) }
             var currentScreen by remember { mutableStateOf("MENU") }
 
             when (currentScreen) {
@@ -23,6 +25,9 @@ class MainActivity : ComponentActivity() {
                     },
                     onSettings = {
                         currentScreen = "SETTINGS"
+                    },
+                    onRecords = {
+                        currentScreen = "RECORDS"
                     }
                 )
                 "GAME" -> GameScreen(
@@ -31,6 +36,10 @@ class MainActivity : ComponentActivity() {
                 )
                 "SETTINGS" -> SettingsScreen(
                     viewModel = gameViewModel,
+                    onBack = { currentScreen = "MENU" }
+                )
+                "RECORDS" -> RecordsScreen(
+                    recordRepository = recordRepository,
                     onBack = { currentScreen = "MENU" }
                 )
             }
