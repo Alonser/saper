@@ -1,59 +1,25 @@
 package com.example.saper.data.repository
 
-import android.content.Context
-import com.example.saper.data.database.DatabaseHelper
-import com.example.saper.data.models.Record
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import com.example.saper.database.GameRecord
+import com.example.saper.database.RecordDao
 
-class RecordRepository(context: Context) {
-    private val dbHelper = DatabaseHelper(context)
-    private val scope = CoroutineScope(Dispatchers.IO)
+class RecordRepository(private val recordDao: RecordDao) {
 
-    private val _easyRecords = MutableStateFlow<List<Record>>(emptyList())
-    val easyRecords = _easyRecords.asStateFlow()
+    // Эти переменные уже ждет твой RecordsScreen
+    val easyRecords = recordDao.getRecordsByDifficulty("EASY")
+    val normalRecords = recordDao.getRecordsByDifficulty("NORMAL")
+    val hardRecords = recordDao.getRecordsByDifficulty("HARD")
 
-    private val _normalRecords = MutableStateFlow<List<Record>>(emptyList())
-    val normalRecords = _normalRecords.asStateFlow()
-
-    private val _hardRecords = MutableStateFlow<List<Record>>(emptyList())
-    val hardRecords = _hardRecords.asStateFlow()
-
-    init {
-        scope.launch {
-            refreshAllRecords()
-        }
-    }
-
-    private suspend fun refreshAllRecords() {
-        _easyRecords.update { dbHelper.getTopRecords("EASY") }
-        _normalRecords.update { dbHelper.getTopRecords("NORMAL") }
-        _hardRecords.update { dbHelper.getTopRecords("HARD") }
-    }
-
-    suspend fun saveRecordIfBetter(difficulty: String, timeSeconds: Int, boardSize: String, minesCount: Int): Boolean {
-        val bestTime = dbHelper.getBestTime(difficulty)
-
-        if (bestTime == null || timeSeconds < bestTime) {
-            val record = Record(
-                difficulty = difficulty,
-                timeSeconds = timeSeconds,
-                boardSize = boardSize,
-                minesCount = minesCount
-            )
-            dbHelper.insertRecord(record)
-            refreshAllRecords()
-            return true
-        }
-        return false
+    suspend fun saveRecord(difficulty: String, timeSeconds: Int) {
+        val record = GameRecord(
+            difficulty = difficulty,
+            timeSeconds = timeSeconds,
+            date = System.currentTimeMillis() // Текущая дата
+        )
+        recordDao.insertRecord(record)
     }
 
     suspend fun clearRecords(difficulty: String) {
-        dbHelper.clearRecords(difficulty)
-        refreshAllRecords()
+        recordDao.clearRecords(difficulty)
     }
 }

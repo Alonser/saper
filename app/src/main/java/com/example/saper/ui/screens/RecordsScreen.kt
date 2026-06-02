@@ -23,9 +23,11 @@ fun RecordsScreen(
     onBack: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val easyRecords by recordRepository.easyRecords.collectAsState()
-    val normalRecords by recordRepository.normalRecords.collectAsState()
-    val hardRecords by recordRepository.hardRecords.collectAsState()
+
+    // ИСПРАВЛЕНО: Добавлено начальное значение initial = emptyList(), чтобы убрать ошибку компиляции
+    val easyRecords by recordRepository.easyRecords.collectAsState(initial = emptyList())
+    val normalRecords by recordRepository.normalRecords.collectAsState(initial = emptyList())
+    val hardRecords by recordRepository.hardRecords.collectAsState(initial = emptyList())
 
     var selectedDifficulty by remember { mutableStateOf("EASY") }
 
@@ -119,7 +121,8 @@ fun RecordsScreen(
                     Text("Дата", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 }
 
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                // ИСПРАВЛЕНО: Заменено на HorizontalDivider, так как Divider устарел в Material 3
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 if (currentRecords.isEmpty()) {
                     Text(
@@ -178,10 +181,11 @@ fun RecordsScreen(
 fun formatTime(seconds: Int): String {
     val minutes = seconds / 60
     val remainingSeconds = seconds % 60
+    // ИСПРАВЛЕНО: Добавлена Locale.getDefault() во все String.format
     return if (minutes > 0) {
-        String.format("%d:%02d", minutes, remainingSeconds)
+        String.format(java.util.Locale.getDefault(), "%d:%02d", minutes, remainingSeconds)
     } else {
-        String.format("%d сек", remainingSeconds)
+        String.format(java.util.Locale.getDefault(), "%d сек", remainingSeconds)
     }
 }
 
